@@ -12,7 +12,7 @@ volumes:
 
 
 services:
-  ### NGINX-Proxy #################################################
+  ### NGINX-Proxy #########################################
   nginx-proxy:
     image: nginx:alpine
     container_name: nginx-proxy
@@ -31,9 +31,9 @@ services:
     networks:
       - frontend
       - backend
-      #- bridge  # uncomment this to allow communicate with external containers 
     restart: unless-stopped
-
+    
+  ###### docker-gen for NGINX-Proxy #######################
   docker-gen:
     image: nginxproxy/docker-gen
     container_name: nginx-proxy-gen
@@ -52,6 +52,7 @@ services:
       - backend
     restart: unless-stopped
 
+  ###### LetsEncrypt for NGINX-Proxy ######################
   acme-companion:
     image: nginxproxy/acme-companion
     container_name: nginx-proxy-acme
@@ -64,6 +65,25 @@ services:
     depends_on:
       - nginx-proxy
       - docker-gen
+    networks:
+      - backend
+    restart: unless-stopped
+
+  ### Looking-Glass #######################################
+  looking-glass:
+    image: gmazoyer/looking-glass
+    container_name: looking-glass
+    ports:
+      # - "${LOOKINGGLASS_HOST_HTTP_PORT}:80" # Uncomment to use standalony 
+    volumes:
+      - ${LOOKINGGLASS_CONFIG_FILE}:/var/www/html/config.php
+      - ${LOOKINGGLASS_LOGO_FILE}:/var/www/html/logo.png
+      - ${LOOKINGGLASS_LOG_FILE}:/var/log/looking-glass.log
+    environment:
+      - VIRTUAL_HOST=${LOOKINGGLASS_HOSTNAME} # Comment to use standalony 
+      - LETSENCRYPT_HOST=${LOOKINGGLASS_HOSTNAME} # Comment to use standalony 
+    depends_on:
+      - nginx-proxy # Comment to use standalony 
     networks:
       - backend
     restart: unless-stopped
