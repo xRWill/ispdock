@@ -9,6 +9,8 @@ networks:
 volumes:
   acme:
     driver: ${VOLUMES_DRIVER}
+  grafana:
+    driver: ${VOLUMES_DRIVER}
 
 
 services:
@@ -57,6 +59,7 @@ services:
     image: nginxproxy/acme-companion
     container_name: nginx-proxy-acme
     volumes:
+      - ${NGINX_CONFIG_PATH}:/etc/nginx/conf.d
       - ${NGINX_SITES_PATH}:/etc/nginx/vhost.d
       - ${APP_CODE_PATH_HOST}:/usr/share/nginx/html
       - ${NGINX_SSL_PATH}:/etc/nginx/certs:rw
@@ -73,7 +76,7 @@ services:
   looking-glass:
     image: gmazoyer/looking-glass
     container_name: looking-glass
-    ports:
+    # ports:
       # - "${LOOKINGGLASS_HOST_HTTP_PORT}:80" # Uncomment to use standalony 
     volumes:
       - ${LOOKINGGLASS_CONFIG_FILE}:/var/www/html/config.php
@@ -85,5 +88,198 @@ services:
     depends_on:
       - nginx-proxy # Comment to use standalony 
     networks:
-      - backend
+      - frontend
     restart: unless-stopped
+
+  ### MySQL ###############################################
+
+  mysql:
+    image: mysql:${MYSQL_VERSION}
+    container_name: mysql
+    restart: unless-stopped
+    command:
+    - mysqld
+    - --character-set-server=utf8
+    - --collation-server=utf8_bin
+    - --default-authentication-plugin=mysql_native_password
+  #   - --require-secure-transport
+  #   - --ssl-ca=/run/secrets/root-ca.pem
+  #   - --ssl-cert=/run/secrets/server-cert.pem
+  #   - --ssl-key=/run/secrets/server-key.pem
+    volumes:
+      - ${DATA_PATH_HOST}/mysql:/var/lib/mysql:rw
+    env_file:
+    - ./mysql/.env_db_mysql
+    secrets:
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+      - MYSQL_ROOT_PASSWORD
+  #   - server-key.pem
+  #   - server-cert.pem
+  #   - root-ca.pem
+    stop_grace_period: 1m
+    ports:
+      - "${MYSQL_PORT}:3306"
+    networks:
+      backend:
+        aliases:
+          - mysql-server
+
+  ### Grafana #############################################
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    restart: unless-stopped
+    volumes:
+      - grafana:/var/lib/grafana
+      - /etc/timezone:/etc/timezone:ro
+      - ./grafana/config/custom.ini:/etc/grafana/grafana.ini
+    environment:
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+      - VIRTUAL_HOST=${GRAFANA_HOSTNAME}
+      - LETSENCRYPT_HOST=${GRAFANA_HOSTNAME}
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "${GRAFANA_HOST_HTTP_PORT}:3000"
+
+
+  ### Zabbix-Server #######################################
+  zabbix-server:
+    container_name: zabbix-server
+    image: zabbix/zabbix-server-mysql:${ZABBIX_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${ZABBIX_PORT}:10051"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./zabbix/zbx_env/usr/lib/zabbix/alertscripts:/usr/lib/zabbix/alertscripts:ro
+      - ./zabbix/zbx_env/usr/lib/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/export:/var/lib/zabbix/export:rw
+      - ./zabbix/zbx_env/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/snmptraps:/var/lib/zabbix/snmptraps:ro
+    env_file:
+      - ./zabbix/env_vars/.env_db_mysql
+      - ./zabbix/env_vars/.env_srv
+    secrets:
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+      - MYSQL_ROOT_PASSWORD
+    depends_on:
+      - mysql
+    networks:
+      backend:
+        aliases:
+          - zabbix-server
+      frontend:
+    stop_grace_period: 30s
+    sysctls:
+      - net.ipv4.ip_local_port_range=1024 65000
+      - net.ipv4.conf.all.accept_redirects=0
+      - net.ipv4.conf.all.secure_redirects=0
+      - net.ipv4.conf.all.send_redirects=0
+    labels:
+      com.zabbix.description: "Zabbix server with MySQL database support"
+      com.zabbix.company: "Zabbix LLC"
+      com.zabbix.component: "zabbix-server"
+      com.zabbix.dbtype: "mysql"
+      com.zabbix.os: "alpine"
+
+
+  ### Zabbix-frontend #######################################
+  zabbix-frontend:
+    container_name: zabbix-frontend
+    image: zabbix/zabbix-web-nginx-mysql:${ZABBIX_VERSION}
+    restart: unless-stopped
+    # links:
+    #   - zabbix-server:zabbix-server
+    #   - mysql:mysql-server
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./zabbix/zbx_env/etc/ssl/nginx:/etc/ssl/nginx:ro
+      - ./zabbix/zbx_env/usr/share/zabbix/modules/:/usr/share/zabbix/modules/:ro
+    env_file:
+      - ./zabbix/env_vars/.env_db_mysql
+      - ./zabbix/env_vars/.env_web
+    secrets:
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+    depends_on:
+      - zabbix-server
+      - mysql
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      - VIRTUAL_PORT=8080
+      - VIRTUAL_HOST=${ZABBIX_HOSTNAME}
+      - LETSENCRYPT_HOST=${ZABBIX_HOSTNAME}
+    #  - LETSENCRYPT_EMAIL=email@domain.com
+    # expose:
+    #   - 8080
+    ports:
+      - "${ZABBIX_WEB_PORT}:8080"
+    networks:
+      - frontend
+      - backend
+    stop_grace_period: 10s
+    sysctls:
+      - net.core.somaxconn=65535
+    labels:
+      com.zabbix.description: "Zabbix frontend on Nginx web-server with MySQL database support"
+      com.zabbix.company: "Zabbix LLC"
+      com.zabbix.component: "zabbix-frontend"
+      com.zabbix.webserver: "nginx"
+      com.zabbix.dbtype: "mysql"
+      com.zabbix.os: "alpine"
+
+#### Zabbix-Agent
+  zabbix-agent:
+    container_name: zabbix-agent2
+    image: zabbix/zabbix-agent2:alpine-5.4-latest
+    restart: always
+    ports:
+      - "10050:10050"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./zabbix/zbx_env/etc/zabbix/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+      - ./zabbix/zbx_env/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    # links:
+      #  - zabbix-server:zabbix-server
+    env_file:
+      - ./zabbix/env_vars/.env_agent
+    privileged: true
+    pid: "host"
+    networks:
+      backend:
+        aliases:
+        - zabbix-agent
+        - zabbix-agent-passive
+        - zabbix-agent-alpine
+    stop_grace_period: 5s
+    labels:
+      com.zabbix.description: "Zabbix agent"
+      com.zabbix.company: "Zabbix LLC"
+      com.zabbix.component: "zabbix-agentd"
+      com.zabbix.os: "alpine"
+
+secrets:
+  MYSQL_USER:
+    file: ./mysql/.MYSQL_USER
+  MYSQL_PASSWORD:
+    file: ./mysql/.MYSQL_PASSWORD
+  MYSQL_ROOT_PASSWORD:
+    file: ./mysql/.MYSQL_ROOT_PASSWORD

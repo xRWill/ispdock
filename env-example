@@ -14,7 +14,7 @@ APP_CODE_PATH_CONTAINER=/var/www
 APP_CODE_CONTAINER_FLAG=:cached
 
 # Choose storage path on your machine. For all storage systems
-DATA_PATH_HOST=../data
+DATA_PATH_HOST=../ispdock_data
 
 ### Drivers ################################################
 
@@ -71,3 +71,22 @@ LOOKINGGLASS_HOSTNAME=lg.yourdomain.tld
 LOOKINGGLASS_CONFIG_FILE=./looking-glass/config.php
 LOOKINGGLASS_LOGO_FILE=./looking-glass/logo.png
 LOOKINGGLASS_LOG_FILE=./looking-glass/looking-glass.log
+
+### Grafana #########################################
+GRAFANA_HOST_HTTP_PORT=3000
+GRAFANA_HOSTNAME=grafana.yourdomain.tld
+
+
+### MYSQL #################################################
+
+MYSQL_VERSION=5.7
+MYSQL_PORT=3306
+
+### ZABBIX-SERVER #################################################
+
+ZABBIX_VERSION=alpine-5.4-latest
+ZABBIX_PORT=10051
+ZABBIX_HOSTNAME=zabbix.yourdomain.tld
+
+
+ZABBIX_WEB_PORT=8080
