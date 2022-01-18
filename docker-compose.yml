@@ -136,6 +136,7 @@ services:
       - ./grafana/config/custom.ini:/etc/grafana/grafana.ini
     environment:
       - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+      - GF_ROOT_URL=https://${GRAFANA_HOSTNAME}
       - VIRTUAL_HOST=${GRAFANA_HOSTNAME}
       - LETSENCRYPT_HOST=${GRAFANA_HOSTNAME}
     networks:
