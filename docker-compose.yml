@@ -246,7 +246,7 @@ services:
 #### Zabbix-Agent
   zabbix-agent:
     container_name: zabbix-agent2
-    image: zabbix/zabbix-agent2:alpine-5.4-latest
+    image: zabbix/zabbix-agent2:${ZABBIX_VERSION}
     restart: always
     ports:
       - "10050:10050"
