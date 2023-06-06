@@ -277,6 +277,23 @@ services:
       com.zabbix.component: "zabbix-agentd"
       com.zabbix.os: "alpine"
 
+#######
+## Speedtest Servers
+#######
+
+#### nPerf-Server
+  nperf-server:
+    container_name: nperf-server
+    build: nperf
+    restart: unless-stopped
+    ports:
+      - "${NPERF_WEB_PORT:-8080}:8080"
+      - "${NPERF_TLS_PORT:-8443}:8443"
+    networks:
+      - frontend
+
+
+#### ###### Secrets 
 secrets:
   MYSQL_USER:
     file: ./mysql/.MYSQL_USER
