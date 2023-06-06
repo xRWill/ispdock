@@ -94,6 +94,7 @@ ZABBIX_WEB_PORT=8080
 #####
 ### Speedtest Servers
 ##### 
+
 ### NPERF-SERVER #################################################
 
 NPERF_HOSTNAME=nperf.yourdomain.tld
