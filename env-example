@@ -99,3 +99,8 @@ ZABBIX_WEB_PORT=8080
 
 NPERF_HOSTNAME=nperf.yourdomain.tld
 NPERF_WEB_PORT=8081
+
+### MC-SERVER #################################################
+
+NPERF_HOSTNAME=mc.yourdomain.tld
+NPERF_WEB_PORT=9090

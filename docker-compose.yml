@@ -296,6 +296,19 @@ services:
     networks:
       - backend
 
+#### Minha Conexão - Server
+  mc-server:
+    container_name: mc-server
+    build: ./mc-server
+    restart: unless-stopped
+    ports:
+      - "${MC_SERVER_WEB_PORT:-9090}:9090"
+    environment:
+      - VIRTUAL_PORT=9090
+      - VIRTUAL_HOST=${MC_SERVER_HOSTNAME}
+      # - LETSENCRYPT_HOST=${MC_SERVER_HOSTNAME}
+    networks:
+      - backend
 
 #### ###### Secrets 
 secrets:
