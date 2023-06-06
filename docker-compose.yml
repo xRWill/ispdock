@@ -290,11 +290,11 @@ services:
       - "${NPERF_WEB_PORT:-8080}:8080"
       - "${NPERF_TLS_PORT:-8443}:8443"
     environment:
-      - VIRTUAL_PORT=${NPERF_WEB_PORT:-8080}
+      - VIRTUAL_PORT=8080
       - VIRTUAL_HOST=${NPERF_HOSTNAME}
-      - LETSENCRYPT_HOST=${NPERF_HOSTNAME}
+      # - LETSENCRYPT_HOST=${NPERF_HOSTNAME}
     networks:
-      - frontend
+      - backend
 
 
 #### ###### Secrets 
